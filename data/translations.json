@@ -1,0 +1,12 @@
+[
+    {
+        "id": "ckjv",
+        "name": "Chinese King James Version",
+        "lang": "zh"
+    },
+    {
+        "id": "esv",
+        "name": "English Standard Version",
+        "lang": "en"
+    }
+]

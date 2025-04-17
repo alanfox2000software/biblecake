@@ -1,28 +1,3 @@
-LLM served by Perplexity Labs
-<think> Alright, the user wants a revised script.js that supports multiple translations with a default of 'ckjv'. Let me start by recalling the previous code structure. The existing code loads books from a single folder, but now they want translations in separate folders, each with a manifest.
-
-First, I need to adjust how books are loaded. The manifest.json in each translation folder lists the books and their corresponding JSON files. So, instead of a fixed book list, the app should read from the manifest.
-
-I'll need a function to load the manifest for the current translation. Then, use that manifest to populate the book list in the sidebar. Also, when a book is selected, the code should fetch the correct JSON file based on the manifest.
-
-I should modify the initialization process. Previously, books were hardcoded, but now they come from the manifest. The loadBook function needs to reference the manifest to get the correct filename.
-
-Adding a translation selector is next. The user mentioned a dropdown in the HTML, so I need to handle the change event to switch translations. When the translation changes, reload the book list and possibly the current book.
-
-Error handling is important. If a translation's manifest can't be loaded, the app should handle it gracefully, maybe show an error message.
-
-I also need to ensure that the default translation 'ckjv' is loaded initially. The DOMContentLoaded event should trigger loading the manifest and then the default book (Genesis).
-
-Testing the flow: load manifest, populate books, load book data, handle chapter navigation. Also, switching translations should update the book list and reset the current view.
-
-I'll structure the script.js with functions for loading manifests, books, handling translation changes, and initial setup. Make sure all async functions have proper error handling.
-
-Finally, check if the service worker needs updates for caching multiple translations, but maybe that's beyond the current scope. Focus on the core functionality first.
-</think>
-
-Here's the full revised script.js with multi-translation support and manifest integration:
-
-javascript
 // Configuration
 const DEFAULT_TRANSLATION = 'ckjv';
 let currentTranslation = DEFAULT_TRANSLATION;

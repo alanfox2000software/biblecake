@@ -1,25 +1,22 @@
-const CACHE_NAME = 'bible-v1';
-const ASSETS = [
-  '/',
-  '/index.html',
-  '/styles.css',
-  '/script.js',
-  '/images/icons/icon-192.webp',
-  '/images/icons/icon-512.webp'
+const CACHE_NAME = 'bible-v2';
+const CORE_ASSETS = [
+    '/',
+    '/index.html',
+    '/styles.css',
+    '/script.js',
+    '/data/translations/translations.json'
 ];
 
-// Install Service Worker
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(ASSETS))
-  );
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then(cache => cache.addAll(CORE_ASSETS))
+    );
 });
 
-// Fetch Cached Assets
 self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => response || fetch(event.request))
-  );
+    event.respondWith(
+        caches.match(event.request)
+            .then(response => response || fetch(event.request))
+    );
 });
