@@ -1,10 +1,11 @@
-const CACHE_NAME = 'bible-v2';
+const CACHE_NAME = 'bible-v3';
 const CORE_ASSETS = [
-    '/',
-    '/index.html',
-    '/styles.css',
-    '/script.js',
-    '/data/translations/translations.json'
+  '/biblecake/',
+  '/biblecake/index.html',
+  '/biblecake/styles.css',
+  '/biblecake/script.js',
+  '/biblecake/images/icons/icon-192.webp',
+  '/biblecake/images/icons/icon-512.webp'
 ];
 
 self.addEventListener('install', (event) => {

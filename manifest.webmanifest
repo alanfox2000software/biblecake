@@ -1,7 +1,7 @@
 {
-  "name": "Bible & Pseudepigrapha",
-  "short_name": "BibleCake",
-  "description": "Bible and Pseudepigrapha Reader",
+  "name": "聖經閱讀器",
+  "short_name": "BibleReader",
+  "description": "離線聖經閱讀應用程式",
   "start_url": "/biblecake/",
   "scope": "/biblecake/",
   "display": "standalone",
