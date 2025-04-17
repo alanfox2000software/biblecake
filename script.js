@@ -138,7 +138,7 @@ async function handleBookChange(event) {
         if (!bookRes.ok) throw new Error('書卷載入失敗');
         
         bookData = await bookRes.json();
-        
+        console.log('Loaded book data:', bookData);  ← Add this line 
         // Validate book data structure
         if (!bookData || !bookData[currentBook]) {
             throw new Error('書卷格式錯誤');
