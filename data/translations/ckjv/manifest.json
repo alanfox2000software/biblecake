@@ -1,6 +1,7 @@
 {
   "translation_name": "Chinese King James Version",
   "abbreviation": "CKJV",
+  "language": "zh",
   "books": {
     "Genesis": "genesis.json",
     "Exodus": "exodus.json",

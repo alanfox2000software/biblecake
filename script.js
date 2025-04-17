@@ -118,34 +118,65 @@ async function handleBookChange(event) {
         showLoading();
         currentBook = event.target.value;
         
+        // Validate book selection
+        if (!currentBook) throw new Error('未選擇書卷');
+
         const response = await fetch(
             `${APP_PREFIX}data/translations/${currentTranslation}/manifest.json`
         );
+        if (!response.ok) throw new Error('無法載入書卷目錄');
+        
         const manifest = await response.json();
         const bookFile = manifest.books[currentBook];
+        
+        // Validate book file reference
+        if (!bookFile) throw new Error('找不到書卷檔案');
         
         const bookRes = await fetch(
             `${APP_PREFIX}data/translations/${currentTranslation}/${bookFile}`
         );
+        if (!bookRes.ok) throw new Error('書卷載入失敗');
+        
         bookData = await bookRes.json();
+        
+        // Validate book data structure
+        if (!bookData || !bookData[currentBook]) {
+            throw new Error('書卷格式錯誤');
+        }
         
         populateChapterSelect();
         currentChapter = 1;
         loadChapterContent();
     } catch (error) {
         console.error('Book change error:', error);
-        showError('無法載入書卷，請重新選擇');
+        showError(`無法載入書卷: ${error.message}`);
     } finally {
         hideLoading();
     }
 }
 
+
 function populateChapterSelect() {
-    const chapters = Object.keys(bookData[currentBook]);
-    chapterSelect.innerHTML = chapters
-        .map(c => `<option value="${c}">第 ${c} 章</option>`)
-        .join('');
-    chapterSelect.disabled = false;
+    try {
+        // Validate book data
+        if (!bookData || !bookData[currentBook]) {
+            throw new Error('無效的書卷資料');
+        }
+        
+        const chapters = Object.keys(bookData[currentBook]);
+        if (chapters.length === 0) {
+            throw new Error('此書卷沒有章節');
+        }
+        
+        chapterSelect.innerHTML = chapters
+            .map(c => `<option value="${c}">第 ${c} 章</option>`)
+            .join('');
+        chapterSelect.disabled = false;
+    } catch (error) {
+        console.error('Chapter select population failed:', error);
+        showError('無法載入章節列表');
+        chapterSelect.innerHTML = '<option value="error">載入失敗</option>';
+    }
 }
 
 function loadChapterContent() {
