@@ -4,6 +4,6 @@
   "language": "zh",
   "books": {
     "創世紀": "genesis.json",
-    "出埃及記": "exodus.json",
+    "出埃及記": "exodus.json"
   }
 }
