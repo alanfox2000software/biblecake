@@ -1,27 +1,159 @@
-let currentTranslation = 'ckjv'; // Default translation
+LLM served by Perplexity Labs
+<think> Alright, the user wants a revised script.js that supports multiple translations with a default of 'ckjv'. Let me start by recalling the previous code structure. The existing code loads books from a single folder, but now they want translations in separate folders, each with a manifest.
+
+First, I need to adjust how books are loaded. The manifest.json in each translation folder lists the books and their corresponding JSON files. So, instead of a fixed book list, the app should read from the manifest.
+
+I'll need a function to load the manifest for the current translation. Then, use that manifest to populate the book list in the sidebar. Also, when a book is selected, the code should fetch the correct JSON file based on the manifest.
+
+I should modify the initialization process. Previously, books were hardcoded, but now they come from the manifest. The loadBook function needs to reference the manifest to get the correct filename.
+
+Adding a translation selector is next. The user mentioned a dropdown in the HTML, so I need to handle the change event to switch translations. When the translation changes, reload the book list and possibly the current book.
+
+Error handling is important. If a translation's manifest can't be loaded, the app should handle it gracefully, maybe show an error message.
+
+I also need to ensure that the default translation 'ckjv' is loaded initially. The DOMContentLoaded event should trigger loading the manifest and then the default book (Genesis).
+
+Testing the flow: load manifest, populate books, load book data, handle chapter navigation. Also, switching translations should update the book list and reset the current view.
+
+I'll structure the script.js with functions for loading manifests, books, handling translation changes, and initial setup. Make sure all async functions have proper error handling.
+
+Finally, check if the service worker needs updates for caching multiple translations, but maybe that's beyond the current scope. Focus on the core functionality first.
+</think>
+
+Here's the full revised script.js with multi-translation support and manifest integration:
+
+javascript
+// Configuration
+const DEFAULT_TRANSLATION = 'ckjv';
+let currentTranslation = DEFAULT_TRANSLATION;
 let currentBook = null;
 let currentChapter = null;
 let bookData = null;
-const bookCache = {};
+const translationCache = new Map();
 
-// Mobile menu functionality
-const mobileMenu = document.getElementById('mobile-menu');
-const sidebar = document.getElementById('sidebar');
+// DOM Elements
+const translationSelect = document.getElementById('translationSelect');
+const bookListDiv = document.getElementById('book-list');
 
-function toggleSidebar() {
-    sidebar.style.left = sidebar.style.left === '0px' ? '-100%' : '0';
+// Initialize App
+document.addEventListener('DOMContentLoaded', async () => {
+    await initTranslations();
+    await loadDefaultBook();
+});
+
+async function initTranslations() {
+    // Load translation list
+    await populateTranslationSelector();
+    
+    // Set up translation change handler
+    translationSelect.addEventListener('change', async () => {
+        currentTranslation = translationSelect.value;
+        await refreshTranslation();
+    });
 }
 
-mobileMenu.addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleSidebar();
-});
+async function populateTranslationSelector() {
+    const response = await fetch('data/translations/translations.json');
+    const translations = await response.json();
+    
+    translationSelect.innerHTML = translations
+        .map(t => `<option value="${t.id}" ${t.id === DEFAULT_TRANSLATION ? 'selected' : ''}>${t.name}</option>`)
+        .join('');
+}
 
-document.addEventListener('click', (e) => {
-    if (window.innerWidth < 768 && !sidebar.contains(e.target)) {
-        sidebar.style.left = '-100%';
+async function refreshTranslation() {
+    bookListDiv.innerHTML = '<div class="loading">Loading translation...</div>';
+    await initBooks();
+    await loadDefaultBook();
+}
+
+async function loadDefaultBook() {
+    const manifest = await loadManifest();
+    const defaultBook = Object.keys(manifest.books)[0];
+    if (defaultBook) await loadBookUI(defaultBook);
+}
+
+// Translation core functions
+async function loadManifest() {
+    if (translationCache.has(currentTranslation)) {
+        return translationCache.get(currentTranslation);
     }
-});
+    
+    const response = await fetch(`data/translations/${currentTranslation}/manifest.json`);
+    const manifest = await response.json();
+    translationCache.set(currentTranslation, manifest);
+    return manifest;
+}
+
+async function initBooks() {
+    try {
+        const manifest = await loadManifest();
+        bookListDiv.innerHTML = Object.keys(manifest.books)
+            .map(bookName => `
+                <button class="book-btn" 
+                        onclick="loadBookUI('${bookName}')"
+                        data-book="${bookName}">
+                    ${bookName}
+                </button>
+            `).join('');
+    } catch (error) {
+        console.error('Error initializing books:', error);
+        bookListDiv.innerHTML = '<div class="error">Error loading translation</div>';
+    }
+}
+
+async function loadBookUI(bookName) {
+    try {
+        const manifest = await loadManifest();
+        if (!manifest.books[bookName]) throw new Error('Book not found');
+        
+        const bookFile = manifest.books[bookName];
+        const response = await fetch(`data/translations/${currentTranslation}/${bookFile}`);
+        bookData = await response.json();
+        
+        currentBook = Object.keys(bookData)[0];
+        currentChapter = '1';
+        
+        updateChapterNavigation();
+        loadChapter(currentChapter);
+        document.getElementById('navigation').style.display = 'flex';
+        
+    } catch (error) {
+        console.error('Error loading book:', error);
+        document.getElementById('verses').innerHTML = `
+            <div class="error">Error loading ${bookName}</div>
+        `;
+    }
+}
+
+// Chapter/verse navigation (similar to previous versions)
+function updateChapterNavigation() {
+    const chapters = Object.keys(bookData[currentBook]);
+    const chapterNumbersDiv = document.getElementById('chapter-numbers');
+    
+    chapterNumbersDiv.innerHTML = chapters.map(chapter => `
+        <button class="chapter-btn ${chapter === currentChapter ? 'active' : ''}" 
+                onclick="loadChapter('${chapter}')">
+            ${chapter}
+        </button>
+    `).join('');
+}
+
+function loadChapter(chapter) {
+    currentChapter = chapter;
+    const chapterContent = bookData[currentBook][chapter];
+    
+    const versesHtml = Object.entries(chapterContent)
+        .map(([verse, text]) => `<p><b>${verse}:</b> ${text}</p>`)
+        .join('');
+
+    document.getElementById('verses').innerHTML = `
+        <h2>${currentBook} ${currentChapter}</h2>
+        ${versesHtml}
+    `;
+    
+    updateChapterNavigation();
+}
 
 // Navigation controls
 document.getElementById('prevChapter').addEventListener('click', () => {
@@ -34,175 +166,15 @@ document.getElementById('nextChapter').addEventListener('click', () => {
     if (bookData[currentBook][next]) loadChapter(next);
 });
 
-async function loadTranslationManifest() {
-  const response = await fetch(`data/translations/${currentTranslation}/manifest.json`);
-  return await response.json();
-}
-
-async function loadBook(bookName) {
-  // Load manifest first
-  const manifest = await loadTranslationManifest();
-  const bookFile = manifest.books[bookName];
-  
-  // Load book data
-  const response = await fetch(`data/translations/${currentTranslation}/${bookFile}`);
-  return await response.json();
-}
-
-// Initialize books
-async function initBooks() {
-  const manifest = await loadTranslationManifest();
-  const bookListDiv = document.getElementById('book-list');
-  
-  bookListDiv.innerHTML = Object.keys(manifest.books)
-    .map(bookName => `
-      <button onclick="loadBookUI('${bookName}')">
-        ${bookName}
-      </button>
-    `).join('');
-}
-
-async function loadBookUI(bookName) {
-  const bookData = await loadBook(bookName);
-  // Rest of your existing book loading logic
-}
-
-// Fetch book data with error handling
-async function loadBookData(bookFile) {
-    try {
-        if (!bookCache[bookFile]) {
-            const response = await fetch(`data/books/${bookFile}`);
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            bookCache[bookFile] = await response.json();
-        }
-        return bookCache[bookFile];
-    } catch (error) {
-        console.error(`Failed to load ${bookFile}:`, error);
-        return null;
-    }
-}
-
-// Load book and initialize first chapter
-async function loadBook(bookFile) {
-    try {
-        bookData = await loadBookData(bookFile);
-        if (!bookData) throw new Error('No book data received');
-
-        currentBook = Object.keys(bookData)[0];
-        currentChapter = '1';
-
-        // Check if navigation element exists
-        const navElement = document.getElementById('navigation');
-        if (!navElement) throw new Error('Navigation element not found');
-        
-        navElement.style.display = 'flex'; // Now safe to modify
-        updateChapterNavigation();
-        loadChapter(currentChapter);
-
-    } catch (error) {
-        console.error("Book load failed:", error);
-        document.getElementById('verses').innerHTML = 
-            `<p class="error">${error.message}</p>`;
-    }
-}
-
-// Update chapter navigation buttons
-function updateChapterNavigation() {
-    if (!bookData || !currentBook) return;
-    
-    const chapters = Object.keys(bookData[currentBook]);
-    const chapterNumbers = document.getElementById('chapter-numbers');
-    
-    chapterNumbers.innerHTML = chapters.map(chapter => `
-        <button class="chapter-btn ${chapter === currentChapter ? 'active' : ''}" 
-                onclick="loadChapter('${chapter}')">
-            ${chapter}
-        </button>
-    `).join('');
-}
-
-// Load specific chapter
-function loadChapter(chapter) {
-    if (!bookData || !currentBook || !bookData[currentBook][chapter]) return;
-    
-    currentChapter = chapter;
-    const chapterContent = bookData[currentBook][chapter];
-    
-    const versesHtml = Object.entries(chapterContent)
-        .map(([verse, text]) => `<p><b>${verse}:</b> ${text}</p>`)
-        .join('');
-
-    document.getElementById('verses').innerHTML = `
-        <h2>${currentBook} ${currentChapter}</h2>
-        ${versesHtml}
-    `;
-
-    updateChapterNavigation();
-}
-
-// Initialize book list
-function initBooks() {
-    const bookList = document.getElementById('book-list');
-    bookList.innerHTML = bookManifest
-        .map(book => `<button onclick="loadBook('${book.file}')">${book.name}</button>`)
-        .join('');
-}
-
-async function testFileAccess() {
-  try {
-    const response = await fetch('data/books/genesis.json');
-    console.log('HTTP status:', response.status);
-    const text = await response.text();
-    console.log('File content:', text);
-  } catch (error) {
-    console.error('File access error:', error);
-  }
-}
-
-// Start the application
-document.addEventListener('DOMContentLoaded', async () => {
-    initBooks();
-    testFileAccess();
-    
-    // Load Genesis by default
-    const genesisBook = bookManifest.find(b => b.name === "Genesis");
-    if (genesisBook) {
-        await loadBook(genesisBook.file);
-        
-        // Close sidebar on mobile after initial load
-        if (window.innerWidth < 768) {
-            sidebar.style.left = '-100%';
-        }
-    }
-});
-
-// Handle window resize
-window.addEventListener('resize', () => {
-    if (window.innerWidth >= 768) {
-        sidebar.style.left = '0';
-    } else {
-        sidebar.style.left = '-100%';
-    }
-});
-
-// Register Service Worker
+// Service Worker (PWA)
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(registration => {
-        console.log('ServiceWorker registration successful');
-      })
-      .catch(err => {
-        console.log('ServiceWorker registration failed:', err);
-      });
-  });
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+                console.log('ServiceWorker registered');
+            })
+            .catch(err => {
+                console.log('ServiceWorker registration failed:', err);
+            });
+    });
 }
-
-// Install Prompt
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  // Show install button if you want
-});
-
