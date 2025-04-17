@@ -186,6 +186,16 @@ function showError(message) {
     `;
 }
 
+function showLoading() {
+    const loading = document.getElementById('loading');
+    if (loading) loading.style.display = 'flex';
+}
+
+function hideLoading() {
+    const loading = document.getElementById('loading');
+    if (loading) loading.style.display = 'none';
+}
+
 // Event Listeners
 function setupEventListeners() {
     translationSelect.addEventListener('change', handleTranslationChange);
