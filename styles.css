@@ -205,3 +205,14 @@ body {
         padding: 12px;
     }
 }
+
+.translation-selector {
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+#translationSelect {
+  width: 100%;
+  padding: 10px;
+  border-radius: 4px;
+}

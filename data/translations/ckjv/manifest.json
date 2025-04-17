@@ -1,0 +1,11 @@
+{
+  "translation_name": "Chinese King James Version",
+  "abbreviation": "CKJV",
+  "books": {
+    "Genesis": "genesis.json",
+    "Exodus": "exodus.json",
+    "Psalms": "psalms.json",
+    "Matthew": "matthew.json",
+    "Revelation": "revelation.json"
+  }
+}

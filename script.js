@@ -1,9 +1,4 @@
-// Book manifest - Add all books here
-const bookManifest = [
-    { name: "Genesis", file: "genesis.json" },
-    { name: "1 Enoch", file: "enoch.json" }
-];
-
+let currentTranslation = 'ckjv'; // Default translation
 let currentBook = null;
 let currentChapter = null;
 let bookData = null;
@@ -38,6 +33,39 @@ document.getElementById('nextChapter').addEventListener('click', () => {
     const next = String(parseInt(currentChapter) + 1);
     if (bookData[currentBook][next]) loadChapter(next);
 });
+
+async function loadTranslationManifest() {
+  const response = await fetch(`data/translations/${currentTranslation}/manifest.json`);
+  return await response.json();
+}
+
+async function loadBook(bookName) {
+  // Load manifest first
+  const manifest = await loadTranslationManifest();
+  const bookFile = manifest.books[bookName];
+  
+  // Load book data
+  const response = await fetch(`data/translations/${currentTranslation}/${bookFile}`);
+  return await response.json();
+}
+
+// Initialize books
+async function initBooks() {
+  const manifest = await loadTranslationManifest();
+  const bookListDiv = document.getElementById('book-list');
+  
+  bookListDiv.innerHTML = Object.keys(manifest.books)
+    .map(bookName => `
+      <button onclick="loadBookUI('${bookName}')">
+        ${bookName}
+      </button>
+    `).join('');
+}
+
+async function loadBookUI(bookName) {
+  const bookData = await loadBook(bookName);
+  // Rest of your existing book loading logic
+}
 
 // Fetch book data with error handling
 async function loadBookData(bookFile) {
