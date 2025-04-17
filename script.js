@@ -141,6 +141,36 @@ document.getElementById('nextChapter').addEventListener('click', () => {
     if (bookData[currentBook][next]) loadChapter(next);
 });
 
+// Mobile menu functionality
+const mobileMenu = document.getElementById('mobile-menu');
+const sidebar = document.getElementById('sidebar');
+
+function toggleSidebar() {
+    sidebar.classList.toggle('active');
+}
+
+// Click handler for mobile menu
+mobileMenu.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleSidebar();
+});
+
+// Close sidebar when clicking outside
+document.addEventListener('click', (e) => {
+    if (window.innerWidth >= 768) return;
+    if (!sidebar.contains(e.target) && !mobileMenu.contains(e.target)) {
+        sidebar.classList.remove('active');
+    }
+});
+
+// Handle window resize
+window.addEventListener('resize', () => {
+    if (window.innerWidth >= 768) {
+        sidebar.classList.remove('active');
+    }
+});
+
+
 // Service Worker (PWA)
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
