@@ -3,64 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#2c3e50">
-    
-    <!-- PWA Metadata -->
-    <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="apple-touch-icon" href="/images/icons/icon-192.png">
-    
-    <title>Bible & Pseudepigrapha</title>
+    <title>Bible Reader</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- Mobile Menu Button -->
-    <button id="mobile-menu" aria-label="Toggle navigation">☰</button>
+    <!-- Top Navigation Bar -->
+    <nav class="top-nav">
+        <div class="nav-container">
+            <!-- Translation Selector -->
+            <select id="translationSelect" class="nav-item">
+                <option value="ckjv">和合本 (CKJV)</option>
+                <option value="esv">English ESV</option>
+            </select>
 
-    <div class="container">
-        <!-- Left Sidebar -->
-        <nav class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <h2>Books</h2>
-                <div class="translation-selector">
-                    <select id="translationSelect">
-                        <option value="ckjv">和合本 (CKJV)</option>
-                        <option value="esv">English Standard</option>
-                    </select>
-                </div>
-            </div>
-            <div id="book-list" class="book-list"></div>
-        </nav>
-
-        <!-- Main Content -->
-        <main class="main-content">
             <!-- Chapter Navigation -->
-            <div class="chapter-nav" id="navigation" style="display: none;">
-                <button id="prevChapter" aria-label="Previous chapter">&lt;</button>
-                <div class="chapter-scroll">
-                    <div id="chapter-numbers" class="chapter-numbers"></div>
-                </div>
-                <button id="nextChapter" aria-label="Next chapter">&gt;</button>
+            <div class="chapter-controls">
+                <button id="prevChapter" class="nav-button">&lt;</button>
+                <select id="chapterSelect" class="nav-item chapter-select"></select>
+                <button id="nextChapter" class="nav-button">&gt;</button>
             </div>
+        </div>
+    </nav>
 
-            <!-- Bible Text -->
-            <article id="verses" class="bible-text"></article>
-            
-            <!-- Loading Indicator -->
-            <div id="loading" class="loading-indicator">
-                <div class="spinner"></div>
-                <p>Loading...</p>
-            </div>
-        </main>
-    </div>
+    <!-- Bible Content -->
+    <main class="content">
+        <div id="verses" class="verses-container"></div>
+    </main>
 
-    <!-- Service Worker Registration -->
     <script src="script.js"></script>
-    
-    <!-- PWA Install Prompt -->
-    <div id="installBanner" class="install-banner">
-        <p>Install Bible Reader for better experience</p>
-        <button id="installButton">Install</button>
-        <button id="dismissInstall">Dismiss</button>
-    </div>
 </body>
 </html>

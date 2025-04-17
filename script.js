@@ -1,185 +1,119 @@
 // Configuration
 const DEFAULT_TRANSLATION = 'ckjv';
+let currentBook = 'Genesis';
+let currentChapter = 1;
 let currentTranslation = DEFAULT_TRANSLATION;
-let currentBook = null;
-let currentChapter = null;
 let bookData = null;
-const translationCache = new Map();
 
 // DOM Elements
 const translationSelect = document.getElementById('translationSelect');
-const bookListDiv = document.getElementById('book-list');
+const chapterSelect = document.getElementById('chapterSelect');
+const prevChapterBtn = document.getElementById('prevChapter');
+const nextChapterBtn = document.getElementById('nextChapter');
+const versesContainer = document.getElementById('verses');
 
-// Initialize App
+// Initialize Application
 document.addEventListener('DOMContentLoaded', async () => {
-    await initTranslations();
-    await loadDefaultBook();
+    await loadBook(currentBook);
+    setupEventListeners();
 });
 
-async function initTranslations() {
-    // Load translation list
-    await populateTranslationSelector();
-    
-    // Set up translation change handler
-    translationSelect.addEventListener('change', async () => {
-        currentTranslation = translationSelect.value;
-        await refreshTranslation();
-    });
+// Event Listeners
+function setupEventListeners() {
+    translationSelect.addEventListener('change', handleTranslationChange);
+    prevChapterBtn.addEventListener('click', loadPreviousChapter);
+    nextChapterBtn.addEventListener('click', loadNextChapter);
+    chapterSelect.addEventListener('change', handleChapterSelect);
 }
 
-async function populateTranslationSelector() {
-    const response = await fetch('data/translations/translations.json');
-    const translations = await response.json();
-    
-    translationSelect.innerHTML = translations
-        .map(t => `<option value="${t.id}" ${t.id === DEFAULT_TRANSLATION ? 'selected' : ''}>${t.name}</option>`)
-        .join('');
-}
-
-async function refreshTranslation() {
-    bookListDiv.innerHTML = '<div class="loading">Loading translation...</div>';
-    await initBooks();
-    await loadDefaultBook();
-}
-
-async function loadDefaultBook() {
-    const manifest = await loadManifest();
-    const defaultBook = Object.keys(manifest.books)[0];
-    if (defaultBook) await loadBookUI(defaultBook);
-}
-
-// Translation core functions
-async function loadManifest() {
-    if (translationCache.has(currentTranslation)) {
-        return translationCache.get(currentTranslation);
-    }
-    
-    const response = await fetch(`data/translations/${currentTranslation}/manifest.json`);
-    const manifest = await response.json();
-    translationCache.set(currentTranslation, manifest);
-    return manifest;
-}
-
-async function initBooks() {
+// Core Functions
+async function loadBook(bookName) {
     try {
-        const manifest = await loadManifest();
-        bookListDiv.innerHTML = Object.keys(manifest.books)
-            .map(bookName => `
-                <button class="book-btn" 
-                        onclick="loadBookUI('${bookName}')"
-                        data-book="${bookName}">
-                    ${bookName}
-                </button>
-            `).join('');
-    } catch (error) {
-        console.error('Error initializing books:', error);
-        bookListDiv.innerHTML = '<div class="error">Error loading translation</div>';
-    }
-}
-
-async function loadBookUI(bookName) {
-    try {
-        const manifest = await loadManifest();
-        if (!manifest.books[bookName]) throw new Error('Book not found');
+        const response = await fetch(`data/${currentTranslation}/${bookName}.json`);
+        if (!response.ok) throw new Error('Book not found');
         
-        const bookFile = manifest.books[bookName];
-        const response = await fetch(`data/translations/${currentTranslation}/${bookFile}`);
         bookData = await response.json();
-        
-        currentBook = Object.keys(bookData)[0];
-        currentChapter = '1';
-        
-        updateChapterNavigation();
-        loadChapter(currentChapter);
-        document.getElementById('navigation').style.display = 'flex';
-        
+        currentChapter = 1;
+        updateChapterSelector();
+        loadCurrentChapter();
     } catch (error) {
         console.error('Error loading book:', error);
-        document.getElementById('verses').innerHTML = `
-            <div class="error">Error loading ${bookName}</div>
-        `;
+        showError('書卷載入失敗，請稍後重試');
     }
 }
 
-// Chapter/verse navigation (similar to previous versions)
-function updateChapterNavigation() {
+function updateChapterSelector() {
     const chapters = Object.keys(bookData[currentBook]);
-    const chapterNumbersDiv = document.getElementById('chapter-numbers');
-    
-    chapterNumbersDiv.innerHTML = chapters.map(chapter => `
-        <button class="chapter-btn ${chapter === currentChapter ? 'active' : ''}" 
-                onclick="loadChapter('${chapter}')">
-            ${chapter}
-        </button>
+    chapterSelect.innerHTML = chapters.map(chapter => `
+        <option value="${chapter}">第 ${chapter} 章</option>
     `).join('');
+    chapterSelect.value = currentChapter;
 }
 
-function loadChapter(chapter) {
-    currentChapter = chapter;
-    const chapterContent = bookData[currentBook][chapter];
+function loadCurrentChapter() {
+    if (!bookData || !bookData[currentBook][currentChapter]) return;
     
-    const versesHtml = Object.entries(chapterContent)
-        .map(([verse, text]) => `<p><b>${verse}:</b> ${text}</p>`)
-        .join('');
+    const chapterContent = bookData[currentBook][currentChapter];
+    versesContainer.innerHTML = Object.entries(chapterContent)
+        .map(([verse, text]) => `
+            <p class="verse"><strong>${verse}.</strong> ${text}</p>
+        `).join('');
+    
+    updateNavigationState();
+}
 
-    document.getElementById('verses').innerHTML = `
-        <h2>${currentBook} ${currentChapter}</h2>
-        ${versesHtml}
+function updateNavigationState() {
+    const chapters = Object.keys(bookData[currentBook]);
+    prevChapterBtn.disabled = currentChapter <= 1;
+    nextChapterBtn.disabled = currentChapter >= chapters.length;
+}
+
+// Event Handlers
+async function handleTranslationChange(event) {
+    currentTranslation = event.target.value;
+    await loadBook(currentBook);
+}
+
+function handleChapterSelect(event) {
+    currentChapter = parseInt(event.target.value);
+    loadCurrentChapter();
+}
+
+function loadPreviousChapter() {
+    if (currentChapter > 1) {
+        currentChapter--;
+        chapterSelect.value = currentChapter;
+        loadCurrentChapter();
+    }
+}
+
+function loadNextChapter() {
+    const maxChapter = Object.keys(bookData[currentBook]).length;
+    if (currentChapter < maxChapter) {
+        currentChapter++;
+        chapterSelect.value = currentChapter;
+        loadCurrentChapter();
+    }
+}
+
+// Utility Functions
+function showError(message) {
+    versesContainer.innerHTML = `
+        <div class="error">
+            <p>⚠️ ${message}</p>
+        </div>
     `;
-    
-    updateChapterNavigation();
 }
 
-// Navigation controls
-document.getElementById('prevChapter').addEventListener('click', () => {
-    const prev = String(parseInt(currentChapter) - 1);
-    if (bookData[currentBook][prev]) loadChapter(prev);
-});
-
-document.getElementById('nextChapter').addEventListener('click', () => {
-    const next = String(parseInt(currentChapter) + 1);
-    if (bookData[currentBook][next]) loadChapter(next);
-});
-
-// Mobile menu functionality
-const mobileMenu = document.getElementById('mobile-menu');
-const sidebar = document.getElementById('sidebar');
-
-function toggleSidebar() {
-    sidebar.classList.toggle('active');
-}
-
-// Click handler for mobile menu
-mobileMenu.addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleSidebar();
-});
-
-// Close sidebar when clicking outside
-document.addEventListener('click', (e) => {
-    if (window.innerWidth >= 768) return;
-    if (!sidebar.contains(e.target) && !mobileMenu.contains(e.target)) {
-        sidebar.classList.remove('active');
-    }
-});
-
-// Handle window resize
-window.addEventListener('resize', () => {
-    if (window.innerWidth >= 768) {
-        sidebar.classList.remove('active');
-    }
-});
-
-
-// Service Worker (PWA)
+// PWA Support
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
             .then(registration => {
-                console.log('ServiceWorker registered');
+                console.log('Service Worker 註冊成功:', registration);
             })
-            .catch(err => {
-                console.log('ServiceWorker registration failed:', err);
+            .catch(error => {
+                console.log('Service Worker 註冊失敗:', error);
             });
     });
 }
