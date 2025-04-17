@@ -39,14 +39,14 @@ window.addEventListener('beforeinstallprompt', (e) => {
     installPrompt.style.display = 'block';
 });
 
-document.getElementById('installConfirm').addEventListener('click', () => {
+document.getElementById('installConfirm')?.addEventListener('click', () => {
     deferredPrompt.prompt();
     deferredPrompt.userChoice.then(choiceResult => {
         installPrompt.style.display = 'none';
     });
 });
 
-document.getElementById('installCancel').addEventListener('click', () => {
+document.getElementById('installCancel')?.addEventListener('click', () => {
     installPrompt.style.display = 'none';
 });
 
