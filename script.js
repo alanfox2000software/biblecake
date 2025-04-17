@@ -1,12 +1,12 @@
-// PWA Configuration
-let deferredPrompt;
+const APP_PREFIX = '/biblecake/';
 const enablePWA = true;
+let deferredPrompt;
 
 // Application State
 let currentTranslation = null;
 let currentBook = null;
 let currentChapter = 1;
-let translations = {};
+let translations = [];
 let bookData = null;
 
 // DOM Elements
@@ -21,12 +21,13 @@ const installPrompt = document.getElementById('installPrompt');
 // Service Worker Registration
 function registerServiceWorker() {
     if ('serviceWorker' in navigator && enablePWA) {
-        navigator.serviceWorker.register('/sw.js')
+        navigator.serviceWorker
+            .register(`${APP_PREFIX}sw.js`, { scope: APP_PREFIX })
             .then(registration => {
                 console.log('Service Worker registered:', registration);
             })
             .catch(error => {
-                console.log('Service Worker registration failed:', error);
+                console.error('Service Worker registration failed:', error);
             });
     }
 }
@@ -41,10 +42,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
 document.getElementById('installConfirm').addEventListener('click', () => {
     deferredPrompt.prompt();
     deferredPrompt.userChoice.then(choiceResult => {
-        if (choiceResult.outcome === 'accepted') {
-            console.log('User installed PWA');
-        }
-        deferredPrompt = null;
         installPrompt.style.display = 'none';
     });
 });
@@ -62,11 +59,21 @@ async function initializeApp() {
 
 async function loadTranslationList() {
     try {
-        const response = await fetch('data/translations/translations.json');
+        showLoading();
+        const response = await fetch(`${APP_PREFIX}data/translations/translations.json`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
         translations = await response.json();
+        if (translations.length === 0) throw new Error('No translations available');
+        
         populateTranslationSelect();
+        translationSelect.value = 'ckjv';
+        await handleTranslationChange({ target: { value: 'ckjv' } });
     } catch (error) {
-        showError('無法載入譯本列表');
+        console.error('Translation list load error:', error);
+        showError('無法載入譯本列表，請刷新頁面');
+    } finally {
+        hideLoading();
     }
 }
 
@@ -76,71 +83,99 @@ function populateTranslationSelect() {
         .join('');
 }
 
-async function loadBookList(translationId) {
+async function handleTranslationChange(event) {
     try {
-        toggleLoading(true);
-        const response = await fetch(`data/translations/${translationId}/manifest.json`);
-        const manifest = await response.json();
+        showLoading();
+        const translationId = event.target.value;
+        currentTranslation = translationId;
         
-        bookSelect.innerHTML = Object.keys(manifest.books)
-            .map(book => `<option value="${book}">${book}</option>`)
-            .join('');
-            
-        bookSelect.disabled = false;
-        return manifest;
+        const response = await fetch(
+            `${APP_PREFIX}data/translations/${translationId}/manifest.json`
+        );
+        if (!response.ok) throw new Error('Manifest load failed');
+        
+        const manifest = await response.json();
+        populateBookSelect(manifest.books);
+        currentBook = Object.keys(manifest.books)[0];
+        await handleBookChange({ target: { value: currentBook } });
     } catch (error) {
-        showError('無法載入書卷列表');
+        console.error('Translation change error:', error);
+        showError('無法載入此譯本，請選擇其他譯本');
     } finally {
-        toggleLoading(false);
+        hideLoading();
     }
 }
 
-async function loadChapterList(translationId, bookName) {
+function populateBookSelect(books) {
+    bookSelect.innerHTML = Object.keys(books)
+        .map(book => `<option value="${book}">${book}</option>`)
+        .join('');
+    bookSelect.disabled = false;
+}
+
+async function handleBookChange(event) {
     try {
-        toggleLoading(true);
-        const manifest = await loadBookList(translationId);
-        const bookFile = manifest.books[bookName];
+        showLoading();
+        currentBook = event.target.value;
         
-        const response = await fetch(`data/translations/${translationId}/${bookFile}`);
-        bookData = await response.json();
+        const response = await fetch(
+            `${APP_PREFIX}data/translations/${currentTranslation}/manifest.json`
+        );
+        const manifest = await response.json();
+        const bookFile = manifest.books[currentBook];
         
-        const chapters = Object.keys(bookData[bookName]);
-        chapterSelect.innerHTML = chapters.map(c => `<option value="${c}">第 ${c} 章</option>`).join('');
-        chapterSelect.disabled = false;
+        const bookRes = await fetch(
+            `${APP_PREFIX}data/translations/${currentTranslation}/${bookFile}`
+        );
+        bookData = await bookRes.json();
         
+        populateChapterSelect();
         currentChapter = 1;
         loadChapterContent();
     } catch (error) {
-        showError('無法載入章節內容');
+        console.error('Book change error:', error);
+        showError('無法載入書卷，請重新選擇');
     } finally {
-        toggleLoading(false);
+        hideLoading();
     }
 }
 
+function populateChapterSelect() {
+    const chapters = Object.keys(bookData[currentBook]);
+    chapterSelect.innerHTML = chapters
+        .map(c => `<option value="${c}">第 ${c} 章</option>`)
+        .join('');
+    chapterSelect.disabled = false;
+}
+
 function loadChapterContent() {
-    const content = bookData[currentBook][currentChapter];
-    versesContainer.innerHTML = Object.entries(content)
+    const chapterContent = bookData[currentBook][currentChapter];
+    versesContainer.innerHTML = Object.entries(chapterContent)
         .map(([verse, text]) => `
             <p class="verse">
                 <span class="verse-number">${verse}.</span>
-                <span class="verse-text">${text}</span>
+                ${text}
             </p>
-        `).join('');
+        `)
+        .join('');
     
     updateNavigationState();
 }
 
 function updateNavigationState() {
     const chapters = Object.keys(bookData[currentBook]);
-    chapterSelect.value = currentChapter;
     prevChapterBtn.disabled = currentChapter <= 1;
     nextChapterBtn.disabled = currentChapter >= chapters.length;
+    chapterSelect.value = currentChapter;
 }
 
 // UI Helpers
-function toggleLoading(isLoading) {
-    document.getElementById('loading').style.display = 
-        isLoading ? 'flex' : 'none';
+function showLoading() {
+    document.getElementById('loading').style.display = 'flex';
+}
+
+function hideLoading() {
+    document.getElementById('loading').style.display = 'none';
 }
 
 function showError(message) {
@@ -151,35 +186,23 @@ function showError(message) {
     `;
 }
 
-// Event Handlers
+// Event Listeners
 function setupEventListeners() {
-    translationSelect.addEventListener('change', async (e) => {
-        currentTranslation = e.target.value;
-        currentBook = null;
-        chapterSelect.disabled = true;
-        await loadBookList(currentTranslation);
-    });
-
-    bookSelect.addEventListener('change', async (e) => {
-        currentBook = e.target.value;
-        await loadChapterList(currentTranslation, currentBook);
-    });
-
+    translationSelect.addEventListener('change', handleTranslationChange);
+    bookSelect.addEventListener('change', handleBookChange);
     chapterSelect.addEventListener('change', (e) => {
         currentChapter = parseInt(e.target.value);
         loadChapterContent();
     });
-
     prevChapterBtn.addEventListener('click', () => {
         if (currentChapter > 1) {
             currentChapter--;
             loadChapterContent();
         }
     });
-
     nextChapterBtn.addEventListener('click', () => {
-        const maxChapter = Object.keys(bookData[currentBook]).length;
-        if (currentChapter < maxChapter) {
+        const chapters = Object.keys(bookData[currentBook]);
+        if (currentChapter < chapters.length) {
             currentChapter++;
             loadChapterContent();
         }
