@@ -11,52 +11,44 @@
     <!-- iOS PWA Support -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="/biblecake/images/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/biblecake/images/icons/icon-192.webp">
     
     <!-- Windows Metro -->
-    <meta name="msapplication-TileImage" content="/biblecake/images/icons/icon-192.png">
+    <meta name="msapplication-TileImage" content="/biblecake/images/icons/icon-192.webp">
     <meta name="msapplication-TileColor" content="#2c3e50">
     
     <title>聖經閱讀器 - Bible Reader</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- Top Navigation -->
+    <!-- Top Navigation Bar -->
     <nav class="top-nav">
         <div class="nav-container">
             <!-- Translation Selector -->
-            <select id="translationSelect" class="nav-item">
-                <option value="ckjv">中文和合本</option>
-                <option value="esv">English ESV</option>
+            <select id="translationSelect" class="nav-dropdown">
+                <option value="loading">載入譯本...</option>
+            </select>
+
+            <!-- Book Selector -->
+            <select id="bookSelect" class="nav-dropdown" disabled>
+                <option value="loading">載入書卷...</option>
             </select>
 
             <!-- Chapter Controls -->
             <div class="chapter-controls">
-                <button id="prevChapter" class="nav-button" aria-label="Previous chapter">&lt;</button>
-                <select id="chapterSelect" class="nav-item chapter-select" aria-label="Select chapter">
-                    <option value="1">第 1 章</option>
+                <button id="prevChapter" class="nav-button" title="上一章">&lt;</button>
+                <select id="chapterSelect" class="nav-dropdown" disabled>
+                    <option value="loading">章節</option>
                 </select>
-                <button id="nextChapter" class="nav-button" aria-label="Next chapter">&gt;</button>
+                <button id="nextChapter" class="nav-button" title="下一章">&gt;</button>
             </div>
         </div>
     </nav>
 
-    <!-- Main Content -->
+    <!-- Bible Content -->
     <main class="content">
         <div id="verses" class="verses-container"></div>
     </main>
-
-    <!-- Install Prompt -->
-    <div id="installPrompt" class="install-prompt">
-        <p>安裝應用程式以便離線閱讀？</p>
-        <button id="installCancel">取消</button>
-        <button id="installConfirm">安裝</button>
-    </div>
-
-    <!-- Loading Indicator -->
-    <div id="loading" class="loading-overlay">
-        <div class="loading-spinner"></div>
-    </div>
 
     <script src="script.js"></script>
 </body>
