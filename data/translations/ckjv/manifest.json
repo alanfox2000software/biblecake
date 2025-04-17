@@ -3,10 +3,7 @@
   "abbreviation": "CKJV",
   "language": "zh",
   "books": {
-    "Genesis": "genesis.json",
-    "Exodus": "exodus.json",
-    "Psalms": "psalms.json",
-    "Matthew": "matthew.json",
-    "Revelation": "revelation.json"
+    "創世紀": "genesis.json",
+    "出埃及記": "exodus.json",
   }
 }
