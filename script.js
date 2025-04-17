@@ -1,3 +1,8 @@
+// PWA Configuration
+let deferredPrompt;
+const enablePWA = true;
+
+// Application State
 let currentTranslation = null;
 let currentBook = null;
 let currentChapter = 1;
@@ -10,14 +15,52 @@ const bookSelect = document.getElementById('bookSelect');
 const chapterSelect = document.getElementById('chapterSelect');
 const prevChapterBtn = document.getElementById('prevChapter');
 const nextChapterBtn = document.getElementById('nextChapter');
+const versesContainer = document.getElementById('verses');
+const installPrompt = document.getElementById('installPrompt');
 
-// Initialize
-document.addEventListener('DOMContentLoaded', async () => {
-    await loadTranslations();
-    setupEventListeners();
+// Service Worker Registration
+function registerServiceWorker() {
+    if ('serviceWorker' in navigator && enablePWA) {
+        navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+                console.log('Service Worker registered:', registration);
+            })
+            .catch(error => {
+                console.log('Service Worker registration failed:', error);
+            });
+    }
+}
+
+// Install Prompt Handling
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installPrompt.style.display = 'block';
 });
 
-async function loadTranslations() {
+document.getElementById('installConfirm').addEventListener('click', () => {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(choiceResult => {
+        if (choiceResult.outcome === 'accepted') {
+            console.log('User installed PWA');
+        }
+        deferredPrompt = null;
+        installPrompt.style.display = 'none';
+    });
+});
+
+document.getElementById('installCancel').addEventListener('click', () => {
+    installPrompt.style.display = 'none';
+});
+
+// Core Application Functions
+async function initializeApp() {
+    registerServiceWorker();
+    await loadTranslationList();
+    setupEventListeners();
+}
+
+async function loadTranslationList() {
     try {
         const response = await fetch('data/translations/translations.json');
         translations = await response.json();
@@ -33,9 +76,9 @@ function populateTranslationSelect() {
         .join('');
 }
 
-async function loadBooks(translationId) {
+async function loadBookList(translationId) {
     try {
-        bookSelect.disabled = true;
+        toggleLoading(true);
         const response = await fetch(`data/translations/${translationId}/manifest.json`);
         const manifest = await response.json();
         
@@ -47,13 +90,15 @@ async function loadBooks(translationId) {
         return manifest;
     } catch (error) {
         showError('無法載入書卷列表');
+    } finally {
+        toggleLoading(false);
     }
 }
 
-async function loadChapters(translationId, bookName) {
+async function loadChapterList(translationId, bookName) {
     try {
-        chapterSelect.disabled = true;
-        const manifest = await loadBooks(translationId);
+        toggleLoading(true);
+        const manifest = await loadBookList(translationId);
         const bookFile = manifest.books[bookName];
         
         const response = await fetch(`data/translations/${translationId}/${bookFile}`);
@@ -67,34 +112,57 @@ async function loadChapters(translationId, bookName) {
         loadChapterContent();
     } catch (error) {
         showError('無法載入章節內容');
+    } finally {
+        toggleLoading(false);
     }
 }
 
 function loadChapterContent() {
     const content = bookData[currentBook][currentChapter];
-    document.getElementById('verses').innerHTML = Object.entries(content)
-        .map(([verse, text]) => `<p><strong>${verse}.</strong> ${text}</p>`)
-        .join('');
+    versesContainer.innerHTML = Object.entries(content)
+        .map(([verse, text]) => `
+            <p class="verse">
+                <span class="verse-number">${verse}.</span>
+                <span class="verse-text">${text}</span>
+            </p>
+        `).join('');
     
-    updateButtonStates();
+    updateNavigationState();
 }
 
-function updateButtonStates() {
+function updateNavigationState() {
     const chapters = Object.keys(bookData[currentBook]);
+    chapterSelect.value = currentChapter;
     prevChapterBtn.disabled = currentChapter <= 1;
     nextChapterBtn.disabled = currentChapter >= chapters.length;
+}
+
+// UI Helpers
+function toggleLoading(isLoading) {
+    document.getElementById('loading').style.display = 
+        isLoading ? 'flex' : 'none';
+}
+
+function showError(message) {
+    versesContainer.innerHTML = `
+        <div class="error">
+            <p>⚠️ ${message}</p>
+        </div>
+    `;
 }
 
 // Event Handlers
 function setupEventListeners() {
     translationSelect.addEventListener('change', async (e) => {
         currentTranslation = e.target.value;
-        await loadBooks(currentTranslation);
+        currentBook = null;
+        chapterSelect.disabled = true;
+        await loadBookList(currentTranslation);
     });
 
     bookSelect.addEventListener('change', async (e) => {
         currentBook = e.target.value;
-        await loadChapters(currentTranslation, currentBook);
+        await loadChapterList(currentTranslation, currentBook);
     });
 
     chapterSelect.addEventListener('change', (e) => {
@@ -105,7 +173,6 @@ function setupEventListeners() {
     prevChapterBtn.addEventListener('click', () => {
         if (currentChapter > 1) {
             currentChapter--;
-            chapterSelect.value = currentChapter;
             loadChapterContent();
         }
     });
@@ -114,13 +181,10 @@ function setupEventListeners() {
         const maxChapter = Object.keys(bookData[currentBook]).length;
         if (currentChapter < maxChapter) {
             currentChapter++;
-            chapterSelect.value = currentChapter;
             loadChapterContent();
         }
     });
 }
 
-function showError(message) {
-    const verses = document.getElementById('verses');
-    verses.innerHTML = `<div class="error">${message}</div>`;
-}
+// Initialize Application
+document.addEventListener('DOMContentLoaded', initializeApp);
