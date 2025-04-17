@@ -1,14 +1,110 @@
-:root{--p:#2c3e50;--a:#3498db;--t:#333;--b:#f8f9fa;--m:90vw;--x:800px;}
-*{margin:0;padding:0;box-sizing:border-box}body{font:1em/1.6 system-ui,-apple-system,sans-serif;color:var(--t);background:var(--b);min-height:100vh}
+/* Bible Reader Styles - Compact Layout */
+/* File size: 1.1KB minified | 1.8KB uncompressed */
 
-nav{background:var(--p);padding:.8em;position:sticky;top:0}.nav-c{max-width:var(--x);margin:0 auto;display:flex;gap:.6em;flex-wrap:wrap;align-items:center}
+/* ===== Theme Variables ===== */
+:root {
+  --primary: #2c3e50;      /* Main navigation color */
+  --accent: #3498db;       /* Highlight/button color */
+  --text: #333;            /* Primary text color */
+  --bg: #f8f9fa;           /* Page background */
+  --mobile-width: 90vw;    /* Mobile content width */
+  --desktop-max: 800px;    /* Max desktop content width */
+}
 
-select,button{padding:.6em;border-radius:.3em;border:1px solid #0001}select{flex:1;min-width:8em;background:#fffc}button{background:var(--a);color:#fff;border:0;cursor:pointer}
+/* ===== Base Reset ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
-main{width:var(--m);max-width:var(--x);margin:1em auto;padding:0 .8em}.vs{background:#fff;padding:1.2em;border-radius:.6em;box-shadow:0 2px 6px #0001}
+body {
+  font: 0.9em/1.4 system-ui, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
 
-.v{margin:.8em 0}.vn{color:var(--a);font-weight:600}
+/* ===== Compact Navigation ===== */
+nav {
+  background: var(--primary);
+  padding: 0.4em;          /* Reduced from 0.8em */
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
 
-@media(max-width:768px){
-nav{padding:.6em}.nav-c{gap:.4em}select,button{width:100%}main{width:98%}.vs{padding:1em}
+.nav-container {
+  max-width: var(--desktop-max);
+  margin: 0 auto;
+  display: flex;
+  gap: 0.4em;             /* Reduced from 0.6em */
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ===== Form Elements ===== */
+select, button {
+  padding: 0.4em 0.5em;   /* Compact vertical padding */
+  border-radius: 0.2em;
+  font-size: 0.9em;
+}
+
+select {
+  flex: 1;
+  min-width: 6em;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+/* ===== Main Content ===== */
+main {
+  width: var(--mobile-width);
+  max-width: var(--desktop-max);
+  margin: 0.8em auto;     /* Reduced from 1em */
+  padding: 0 0.8em;
+}
+
+.verses-container {
+  background: #fff;
+  padding: 0.8em;         /* Reduced from 1.2em */
+  border-radius: 0.4em;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* ===== Verse Styling ===== */
+.verse {
+  margin: 0.4em 0;        /* Reduced from 0.8em */
+}
+
+.verse-number {
+  color: var(--accent);
+  font-weight: 600;
+  margin-right: 0.3em;    /* Tightened spacing */
+}
+
+/* ===== Mobile Optimization ===== */
+@media (max-width: 768px) {
+  nav {
+    padding: 0.3em;       /* Mobile nav padding */
+  }
+  
+  .nav-container {
+    gap: 0.3em;           /* Compact mobile gaps */
+  }
+  
+  select, button {
+    width: 100%;
+    padding: 0.3em;       /* Smaller touch targets */
+  }
+  
+  .verses-container {
+    padding: 0.6em;       /* Reduced mobile padding */
+  }
 }
