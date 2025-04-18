@@ -1,0 +1,24 @@
+{
+  "translation_name": "Chinese Deuterocanon",
+  "abbreviation": "CAPO",
+  "language": "zh",
+  "books": {
+    "以斯拉記上": "1esdras.json",
+    "以斯拉記下": "2esdras.json",
+    "以斯帖記": "esther.json",
+    "巴錄一書": "1baruch.json",
+    "巴錄二書": "2baruch.json",
+    "巴錄三書": "3baruch.json",
+    "巴錄四書": "4baruch.json",
+    "以諾一書": "1enoch.json",
+    "以諾二書": "2enoch.json",
+    "以諾三書": "3enoch.json",
+    "便西拉智訓": "sirach.json",
+    "所羅門智訓": "wisdomofsolomon.json",
+    "所羅門詩篇": "psalmsofsoloman.json",
+    "蘇撒拿傳": "susanna.json",
+    "以賽亞升天記": "ascensionofisaiah.json",
+    "彼得啟示錄": "apocalypseofpeter.json",
+    "亞伯拉罕啟示錄": "apocalypseofabraham.json"
+  }
+}
