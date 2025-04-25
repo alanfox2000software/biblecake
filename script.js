@@ -1,260 +1,216 @@
-// Bible Reader PWA - Enhanced Version
+// Bible Reader PWA - Initialization Fixed
 const BibleReader = (() => {
-  // Configuration Constants
   const CONFIG = {
     appPrefix: '/biblecake/',
     defaultTranslation: 'ckjv',
-    cache: {
-      name: 'BibleCache-v1',
-      strategies: {
-        translations: 'networkFirst',
-        books: 'staleWhileRevalidate'
-      }
+    paths: {
+      translations: 'data/translations/translations.json',
+      manifest: 'data/translations/{translation}/manifest.json',
+      book: 'data/translations/{translation}/{book}.json'
     },
-    swipe: {
-      threshold: 50, // pixels
-      animationDuration: 300 // ms
+    cache: {
+      name: 'BibleCache-v2',
+      version: '2.0.0'
     }
   };
 
-  // Application State
+  // State Management
   const state = {
-    translation: null,
-    book: null,
-    chapter: 1,
     translations: [],
+    current: {
+      translation: null,
+      book: null,
+      chapter: 1
+    },
     manifest: null,
-    content: null,
-    lastUpdate: Date.now()
+    content: null
   };
 
-  // DOM Elements
+  // DOM References
   const DOM = {
     translationSelect: document.getElementById('translationSelect'),
     bookSelect: document.getElementById('bookSelect'),
     chapterSelect: document.getElementById('chapterSelect'),
     versesContainer: document.getElementById('verses'),
-    loadingIndicator: document.getElementById('loading'),
+    loading: document.getElementById('loading'),
     installPrompt: document.getElementById('installPrompt')
   };
 
-  // Service Worker Management
+  // Service Worker Registration
   const ServiceWorker = {
     async register() {
       if (!('serviceWorker' in navigator)) return;
 
       try {
-        const registration = await navigator.serviceWorker.register(
+        const reg = await navigator.serviceWorker.register(
           `${CONFIG.appPrefix}sw.js`,
           { scope: CONFIG.appPrefix }
         );
-
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              UI.showToast('New version available! Refresh to update.', 'info');
-            }
-          });
-        });
-
-        console.log('Service Worker registered:', registration);
-      } catch (error) {
-        console.error('Service Worker registration failed:', error);
+        console.log('Service Worker registered:', reg);
+        return reg;
+      } catch (err) {
+        console.error('SW registration failed:', err);
+        throw err;
       }
-    },
-
-    async checkUpdate() {
-      const registration = await navigator.serviceWorker.ready;
-      registration.update().catch(err => 
-        console.error('Update check failed:', err)
-      );
     }
   };
 
-  // Data Handling
+  // Data Service
   const DataService = {
     async fetchTranslations() {
-      const url = `${CONFIG.appPrefix}data/translations/translations.json`;
-      return this._fetchWithCache(url, CONFIG.cache.strategies.translations);
+      return this._fetchJSON(CONFIG.paths.translations);
     },
 
-    async fetchManifest(translationId) {
-      const url = `${CONFIG.appPrefix}data/translations/${translationId}/manifest.json`;
-      return this._fetchWithCache(url, CONFIG.cache.strategies.translations);
+    async fetchManifest(translation) {
+      const path = CONFIG.paths.manifest.replace('{translation}', translation);
+      return this._fetchJSON(path);
     },
 
-    async fetchBook(translationId, bookFile) {
-      const url = `${CONFIG.appPrefix}data/translations/${translationId}/${bookFile}`;
-      return this._fetchWithCache(url, CONFIG.cache.strategies.books);
+    async fetchBook(translation, book) {
+      const path = CONFIG.paths.book
+        .replace('{translation}', translation)
+        .replace('{book}', book);
+      return this._fetchJSON(path);
     },
 
-    async _fetchWithCache(url, strategy) {
+    async _fetchJSON(path) {
       try {
-        const cache = await caches.open(CONFIG.cache.name);
-        const cachedResponse = await cache.match(url);
-
-        if (cachedResponse && strategy === 'staleWhileRevalidate') {
-          this._backgroundUpdate(url, cache);
-          return cachedResponse.json();
-        }
-
-        const networkResponse = await fetch(url);
-        if (!networkResponse.ok) throw new Error('Network response not OK');
-
-        await cache.put(url, networkResponse.clone());
-        return networkResponse.json();
-      } catch (error) {
-        const cached = await caches.match(url);
-        if (cached) return cached.json();
-        throw error;
-      }
-    },
-
-    async _backgroundUpdate(url, cache) {
-      try {
-        const fresh = await fetch(url);
-        if (fresh.ok) await cache.put(url, fresh);
-      } catch (error) {
-        console.log('Background update failed:', error);
+        const response = await fetch(`${CONFIG.appPrefix}${path}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      } catch (err) {
+        console.error(`Fetch failed: ${path}`, err);
+        throw err;
       }
     }
   };
 
-  // User Interface
+  // UI Controller
   const UI = {
-    init() {
-      this._setupEventListeners();
-      this._setupGestureControls();
-      this._restoreSession();
+    async initialize() {
+      this._bindEvents();
+      await this._loadTranslations();
+      await this._loadInitialTranslation();
     },
 
-    async _setupEventListeners() {
-      DOM.translationSelect.addEventListener('change', this._handleTranslationChange);
-      DOM.bookSelect.addEventListener('change', this._handleBookChange);
-      DOM.chapterSelect.addEventListener('change', this._handleChapterChange);
-      document.getElementById('prevChapter').addEventListener('click', this._prevChapter);
-      document.getElementById('nextChapter').addEventListener('click', this._nextChapter);
-      window.addEventListener('beforeinstallprompt', this._handleInstallPrompt);
+    async _loadTranslations() {
+      try {
+        this.showLoading();
+        state.translations = await DataService.fetchTranslations();
+        this._populateSelect(DOM.translationSelect, state.translations);
+      } catch (err) {
+        this.showError('Failed to load translations. Please refresh the page.');
+        throw err;
+      } finally {
+        this.hideLoading();
+      }
     },
 
-    _setupGestureControls() {
-      let touchStartX = 0;
-
-      DOM.versesContainer.addEventListener('touchstart', e => {
-        touchStartX = e.touches[0].clientX;
-      }, { passive: true });
-
-      DOM.versesContainer.addEventListener('touchend', e => {
-        const deltaX = e.changedTouches[0].clientX - touchStartX;
-        if (Math.abs(deltaX) > CONFIG.swipe.threshold) {
-          deltaX > 0 ? this._prevChapter() : this._nextChapter();
+    async _loadInitialTranslation() {
+      try {
+        const defaultTrans = state.translations.find(
+          t => t.id === CONFIG.defaultTranslation
+        );
+        
+        if (!defaultTrans) {
+          throw new Error('Default translation not found');
         }
-      }, { passive: true });
-    },
 
-    async _handleTranslationChange() {
-      const translationId = DOM.translationSelect.value;
-      UI.showLoading();
-      
-      try {
-        const manifest = await DataService.fetchManifest(translationId);
-        state.translation = translationId;
-        state.manifest = manifest;
-        this._populateBookSelect(manifest.books);
-        await this._handleBookChange();
-        this._saveSession();
-      } catch (error) {
-        this.showError('Failed to load translation');
-      } finally {
-        UI.hideLoading();
+        await this._loadTranslation(CONFIG.defaultTranslation);
+      } catch (err) {
+        this.showError('Failed to load initial translation');
+        throw err;
       }
     },
 
-    _populateBookSelect(books) {
-      DOM.bookSelect.innerHTML = Object.keys(books)
-        .map(book => `<option value="${book}">${book}</option>`)
-        .join('');
-      DOM.bookSelect.disabled = false;
+    async _loadTranslation(translationId) {
+      try {
+        this.showLoading();
+        state.current.translation = translationId;
+        state.manifest = await DataService.fetchManifest(translationId);
+        
+        if (!state.manifest?.books) {
+          throw new Error('Invalid manifest format');
+        }
+
+        this._populateSelect(DOM.bookSelect, Object.keys(state.manifest.books));
+        await this._loadInitialBook();
+      } catch (err) {
+        this.showError(`Translation load failed: ${err.message}`);
+        throw err;
+      } finally {
+        this.hideLoading();
+      }
     },
 
-    async _handleBookChange() {
-      const book = DOM.bookSelect.value;
-      const bookFile = state.manifest.books[book];
-      UI.showLoading();
+    async _loadInitialBook() {
+      const firstBook = Object.keys(state.manifest.books)[0];
+      if (!firstBook) {
+        throw new Error('No books available');
+      }
+      DOM.bookSelect.value = firstBook;
+      await this._loadBook(firstBook);
+    },
 
+    async _loadBook(bookName) {
       try {
-        const data = await DataService.fetchBook(state.translation, bookFile);
-        state.book = book;
+        this.showLoading();
+        state.current.book = bookName;
+        const bookFile = state.manifest.books[bookName];
+        
+        if (!bookFile) {
+          throw new Error('Book file not specified');
+        }
+
+        const data = await DataService.fetchBook(
+          state.current.translation, 
+          bookFile
+        );
+        
+        if (!data[bookName]) {
+          throw new Error('Invalid book format');
+        }
+
         state.content = data;
-        this._populateChapterSelect();
-        this._loadChapterContent();
-        this._saveSession();
-      } catch (error) {
-        this.showError('Failed to load book');
+        this._populateChapters(Object.keys(data[bookName]));
+        this._loadChapter();
+      } catch (err) {
+        this.showError(`Book load failed: ${err.message}`);
+        throw err;
       } finally {
-        UI.hideLoading();
+        this.hideLoading();
       }
     },
 
-    _populateChapterSelect() {
-      const chapters = Object.keys(state.content[state.book]);
-      DOM.chapterSelect.innerHTML = chapters
-        .map(ch => `<option value="${ch}">Chapter ${ch}</option>`)
-        .join('');
-      DOM.chapterSelect.disabled = false;
+    _populateChapters(chapters) {
+      this._populateSelect(DOM.chapterSelect, chapters);
     },
 
-    _loadChapterContent() {
-      const chapterData = state.content[state.book][state.chapter];
+    _loadChapter() {
+      const chapterData = state.content[state.current.book][state.current.chapter];
       DOM.versesContainer.innerHTML = Object.entries(chapterData)
         .map(([verse, text]) => `
           <div class="verse">
             <span class="verse-number">${verse}</span>
-            <span class="verse-text">${text}</span>
+            ${text}
           </div>
         `)
         .join('');
-      
-      this._updateNavigation();
     },
 
-    _updateNavigation() {
-      const chapters = Object.keys(state.content[state.book]);
-      DOM.chapterSelect.value = state.chapter;
-      document.getElementById('prevChapter').disabled = state.chapter <= 1;
-      document.getElementById('nextChapter').disabled = state.chapter >= chapters.length;
-    },
-
-    _handleChapterChange() {
-      state.chapter = parseInt(DOM.chapterSelect.value);
-      this._loadChapterContent();
-      this._saveSession();
-    },
-
-    _prevChapter() {
-      if (state.chapter > 1) {
-        state.chapter--;
-        this._loadChapterContent();
-        this._saveSession();
-      }
-    },
-
-    _nextChapter() {
-      const chapters = Object.keys(state.content[state.book]);
-      if (state.chapter < chapters.length) {
-        state.chapter++;
-        this._loadChapterContent();
-        this._saveSession();
-      }
+    _populateSelect(selectElement, items) {
+      selectElement.innerHTML = items
+        .map(item => `<option value="${item}">${item}</option>`)
+        .join('');
+      selectElement.disabled = false;
     },
 
     showLoading() {
-      DOM.loadingIndicator.style.display = 'flex';
+      DOM.loading.style.display = 'flex';
     },
 
     hideLoading() {
-      DOM.loadingIndicator.style.display = 'none';
+      DOM.loading.style.display = 'none';
     },
 
     showError(message) {
@@ -266,74 +222,35 @@ const BibleReader = (() => {
       `;
     },
 
-    showToast(message, type = 'info') {
-      const toast = document.createElement('div');
-      toast.className = `toast toast-${type}`;
-      toast.textContent = message;
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
-    },
-
-    _handleInstallPrompt(e) {
-      e.preventDefault();
-      window.deferredPrompt = e;
-      DOM.installPrompt.style.display = 'block';
-      
-      document.getElementById('installConfirm').addEventListener('click', () => {
-        e.prompt();
-        e.userChoice.then(choice => {
-          DOM.installPrompt.style.display = 'none';
-        });
+    _bindEvents() {
+      DOM.translationSelect.addEventListener('change', async (e) => {
+        await this._loadTranslation(e.target.value);
       });
-      
-      document.getElementById('installCancel').addEventListener('click', () => {
-        DOM.installPrompt.style.display = 'none';
+
+      DOM.bookSelect.addEventListener('change', async (e) => {
+        await this._loadBook(e.target.value);
       });
-    },
 
-    _saveSession() {
-      localStorage.setItem('bibleReaderState', JSON.stringify({
-        translation: state.translation,
-        book: state.book,
-        chapter: state.chapter,
-        lastUpdate: Date.now()
-      }));
-    },
-
-    async _restoreSession() {
-      const saved = localStorage.getItem('bibleReaderState');
-      if (!saved) return;
-
-      const { translation, book, chapter } = JSON.parse(saved);
-      if (translation && book && chapter) {
-        DOM.translationSelect.value = translation;
-        await this._handleTranslationChange();
-        DOM.bookSelect.value = book;
-        await this._handleBookChange();
-        state.chapter = chapter;
-        this._loadChapterContent();
-      }
+      DOM.chapterSelect.addEventListener('change', (e) => {
+        state.current.chapter = e.target.value;
+        this._loadChapter();
+      });
     }
   };
 
   // Public API
   return {
-    init: () => {
-      ServiceWorker.register();
-      UI.init();
-      
-      // Initialize with default translation
-      DataService.fetchTranslations()
-        .then(translations => {
-          state.translations = translations;
-          UI._populateTranslationSelect(translations);
-          DOM.translationSelect.value = CONFIG.defaultTranslation;
-          UI._handleTranslationChange();
-        })
-        .catch(error => UI.showError('Initialization failed'));
+    init: async () => {
+      try {
+        await ServiceWorker.register();
+        await UI.initialize();
+      } catch (err) {
+        UI.showError('Initialization failed. Please check your connection.');
+        console.error('Critical initialization error:', err);
+      }
     }
   };
 })();
 
-// Initialize Application
+// Initialize the application
 document.addEventListener('DOMContentLoaded', BibleReader.init);
