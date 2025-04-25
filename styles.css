@@ -81,12 +81,32 @@ main {
 /* ===== Verse Styling ===== */
 .verse {
   margin: 0.4em 0;        /* Reduced from 0.8em */
+  scroll-behavior: smooth;
+  overflow-y: auto;
+  height: 70vh;
 }
 
 .verse-number {
   color: var(--accent);
   font-weight: 600;
   margin-right: 0.3em;    /* Tightened spacing */
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.verse-number:hover {
+    color: #2c3e50;
+    transform: scale(1.1);
+}
+
+.verse:target {
+    background-color: rgba(44, 62, 80, 0.1);
+    animation: highlight 1.5s ease;
+}
+
+@keyframes highlight {
+    from { background-color: rgba(44, 62, 80, 0.3); }
+    to { background-color: rgba(44, 62, 80, 0.1); }
 }
 
 /* ===== Mobile Optimization ===== */
