@@ -184,7 +184,7 @@ function loadChapterContent() {
     const chapterContent = bookData[currentBook][currentChapter];
     versesContainer.innerHTML = Object.entries(chapterContent)
         .map(([verse, text]) => `
-            <p class="verse" id="${currentBook}-${currentChapter}-${verse}">
+            <p class="verse">
                 <span class="verse-number">${verse}.</span>
                 ${text}
             </p>
@@ -192,29 +192,6 @@ function loadChapterContent() {
         .join('');
     
     updateNavigationState();
-    
-    // Scroll to top when chapter changes
-    versesContainer.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-    });
-}
-
-function scrollToVerse(verseNumber) {
-    const verseElement = document.getElementById(`${currentBook}-${currentChapter}-${verseNumber}`);
-    if (verseElement) {
-        verseElement.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center'
-        });
-    }
-}
-
-function handleVerseClick(event) {
-    if (event.target.classList.contains('verse-number')) {
-        const verseNumber = event.target.textContent.replace('.', '');
-        scrollToVerse(verseNumber);
-    }
 }
 
 function updateNavigationState() {
@@ -270,17 +247,6 @@ function setupEventListeners() {
         if (currentChapter < chapters.length) {
             currentChapter++;
             loadChapterContent();
-        }
-    });
-	versesContainer.addEventListener('click', handleVerseClick);
-	    // Add keyboard navigation
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-            e.preventDefault();
-            versesContainer.scrollBy({
-                top: e.key === 'ArrowDown' ? 100 : -100,
-                behavior: 'smooth'
-            });
         }
     });
 }
