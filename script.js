@@ -182,7 +182,12 @@ function populateChapterSelect() {
 
 function loadChapterContent() {
     const chapterContent = bookData[currentBook][currentChapter];
-    versesContainer.innerHTML = Object.entries(chapterContent)
+    
+    // 將經文條目轉換為陣列並按數字排序
+    const sortedVerses = Object.entries(chapterContent)
+        .sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+
+    versesContainer.innerHTML = sortedVerses
         .map(([verse, text]) => `
             <p class="verse">
                 <span class="verse-number">${verse}.</span>
@@ -193,6 +198,7 @@ function loadChapterContent() {
     
     updateNavigationState();
 }
+
 
 function updateNavigationState() {
     const chapters = Object.keys(bookData[currentBook]);
