@@ -183,9 +183,14 @@ function populateChapterSelect() {
 function loadChapterContent() {
     const chapterContent = bookData[currentBook][currentChapter];
     
-    // 將經文條目轉換為陣列並按數字排序
-    const sortedVerses = Object.entries(chapterContent)
-        .sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+    // 分離非數字鍵（保留原始順序）與數字鍵（按數值排序）
+    const entries = Object.entries(chapterContent);
+    const nonNumericEntries = entries.filter(([key]) => isNaN(key));
+    const numericEntries = entries.filter(([key]) => !isNaN(key))
+                                  .sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+    
+    // 合併兩組內容（非數字在前，數字在後）
+    const sortedVerses = [...nonNumericEntries, ...numericEntries];
 
     versesContainer.innerHTML = sortedVerses
         .map(([verse, text]) => `
@@ -198,6 +203,7 @@ function loadChapterContent() {
     
     updateNavigationState();
 }
+
 
 
 function updateNavigationState() {
