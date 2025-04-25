@@ -5,7 +5,7 @@ let deferredPrompt;
 // Application State
 let currentTranslation = null;
 let currentBook = null;
-let currentChapter = 1;
+let currentChapter = null; // 改为字符串类型存储
 let translations = [];
 let bookData = null;
 
@@ -97,7 +97,7 @@ async function handleTranslationChange(event) {
         const manifest = await response.json();
         populateBookSelect(manifest.books);
         currentBook = Object.keys(manifest.books)[0];
-		bookSelect.value = currentBook;
+        bookSelect.value = currentBook;
         await handleBookChange({ target: { value: currentBook } });
     } catch (error) {
         console.error('Translation change error:', error);
@@ -119,7 +119,6 @@ async function handleBookChange(event) {
         showLoading();
         currentBook = event.target.value;
         
-        // Validate book selection
         if (!currentBook) throw new Error('未選擇書卷');
 
         const response = await fetch(
@@ -130,7 +129,6 @@ async function handleBookChange(event) {
         const manifest = await response.json();
         const bookFile = manifest.books[currentBook];
         
-        // Validate book file reference
         if (!bookFile) throw new Error('找不到書卷檔案');
         
         const bookRes = await fetch(
@@ -139,14 +137,16 @@ async function handleBookChange(event) {
         if (!bookRes.ok) throw new Error('書卷載入失敗');
         
         bookData = await bookRes.json();
-        console.log('Loaded book data:', bookData);
-        // Validate book data structure
         if (!bookData || !bookData[currentBook]) {
             throw new Error('書卷格式錯誤');
         }
         
+        // 初始化章节为第一个可用章节
+        const chapters = Object.keys(bookData[currentBook]);
+        if (chapters.length === 0) throw new Error('此書卷沒有章節');
+        currentChapter = chapters[0]; 
+        
         populateChapterSelect();
-        currentChapter = 1;
         loadChapterContent();
     } catch (error) {
         console.error('Book change error:', error);
@@ -156,10 +156,8 @@ async function handleBookChange(event) {
     }
 }
 
-
 function populateChapterSelect() {
     try {
-        // Validate book data
         if (!bookData || !bookData[currentBook]) {
             throw new Error('無效的書卷資料');
         }
@@ -172,6 +170,7 @@ function populateChapterSelect() {
         chapterSelect.innerHTML = chapters
             .map(c => `<option value="${c}">第 ${c} 章</option>`)
             .join('');
+        chapterSelect.value = currentChapter;
         chapterSelect.disabled = false;
     } catch (error) {
         console.error('Chapter select population failed:', error);
@@ -183,13 +182,11 @@ function populateChapterSelect() {
 function loadChapterContent() {
     const chapterContent = bookData[currentBook][currentChapter];
     
-    // 分離非數字鍵（保留原始順序）與數字鍵（按數值排序）
     const entries = Object.entries(chapterContent);
     const nonNumericEntries = entries.filter(([key]) => isNaN(key));
     const numericEntries = entries.filter(([key]) => !isNaN(key))
                                   .sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
     
-    // 合併兩組內容（非數字在前，數字在後）
     const sortedVerses = [...nonNumericEntries, ...numericEntries];
 
     versesContainer.innerHTML = sortedVerses
@@ -204,12 +201,12 @@ function loadChapterContent() {
     updateNavigationState();
 }
 
-
-
 function updateNavigationState() {
     const chapters = Object.keys(bookData[currentBook]);
-    prevChapterBtn.disabled = currentChapter <= 1;
-    nextChapterBtn.disabled = currentChapter >= chapters.length;
+    const currentIndex = chapters.indexOf(currentChapter);
+    
+    prevChapterBtn.disabled = currentIndex <= 0;
+    nextChapterBtn.disabled = currentIndex >= chapters.length - 1;
     chapterSelect.value = currentChapter;
 }
 
@@ -230,34 +227,30 @@ function showError(message) {
     `;
 }
 
-function showLoading() {
-    const loading = document.getElementById('loading');
-    if (loading) loading.style.display = 'flex';
-}
-
-function hideLoading() {
-    const loading = document.getElementById('loading');
-    if (loading) loading.style.display = 'none';
-}
-
 // Event Listeners
 function setupEventListeners() {
     translationSelect.addEventListener('change', handleTranslationChange);
     bookSelect.addEventListener('change', handleBookChange);
+    
     chapterSelect.addEventListener('change', (e) => {
-        currentChapter = parseInt(e.target.value);
+        currentChapter = e.target.value;
         loadChapterContent();
     });
+
     prevChapterBtn.addEventListener('click', () => {
-        if (currentChapter > 1) {
-            currentChapter--;
+        const chapters = Object.keys(bookData[currentBook]);
+        const currentIndex = chapters.indexOf(currentChapter);
+        if (currentIndex > 0) {
+            currentChapter = chapters[currentIndex - 1];
             loadChapterContent();
         }
     });
+
     nextChapterBtn.addEventListener('click', () => {
         const chapters = Object.keys(bookData[currentBook]);
-        if (currentChapter < chapters.length) {
-            currentChapter++;
+        const currentIndex = chapters.indexOf(currentChapter);
+        if (currentIndex < chapters.length - 1) {
+            currentChapter = chapters[currentIndex + 1];
             loadChapterContent();
         }
     });
