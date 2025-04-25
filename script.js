@@ -1,256 +1,255 @@
-// Bible Reader PWA - Initialization Fixed
-const BibleReader = (() => {
-  const CONFIG = {
-    appPrefix: '/biblecake/',
-    defaultTranslation: 'ckjv',
-    paths: {
-      translations: 'data/translations/translations.json',
-      manifest: 'data/translations/{translation}/manifest.json',
-      book: 'data/translations/{translation}/{book}.json'
-    },
-    cache: {
-      name: 'BibleCache-v2',
-      version: '2.0.0'
+const APP_PREFIX = '/biblecake/';
+const enablePWA = true;
+let deferredPrompt;
+
+// Application State
+let currentTranslation = null;
+let currentBook = null;
+let currentChapter = 1;
+let translations = [];
+let bookData = null;
+
+// DOM Elements
+const translationSelect = document.getElementById('translationSelect');
+const bookSelect = document.getElementById('bookSelect');
+const chapterSelect = document.getElementById('chapterSelect');
+const prevChapterBtn = document.getElementById('prevChapter');
+const nextChapterBtn = document.getElementById('nextChapter');
+const versesContainer = document.getElementById('verses');
+const installPrompt = document.getElementById('installPrompt');
+
+// Service Worker Registration
+function registerServiceWorker() {
+    if ('serviceWorker' in navigator && enablePWA) {
+        navigator.serviceWorker
+            .register(`${APP_PREFIX}sw.js`, { scope: APP_PREFIX })
+            .then(registration => {
+                console.log('Service Worker registered:', registration);
+            })
+            .catch(error => {
+                console.error('Service Worker registration failed:', error);
+            });
     }
-  };
+}
 
-  // State Management
-  const state = {
-    translations: [],
-    current: {
-      translation: null,
-      book: null,
-      chapter: 1
-    },
-    manifest: null,
-    content: null
-  };
+// Install Prompt Handling
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installPrompt.style.display = 'block';
+});
 
-  // DOM References
-  const DOM = {
-    translationSelect: document.getElementById('translationSelect'),
-    bookSelect: document.getElementById('bookSelect'),
-    chapterSelect: document.getElementById('chapterSelect'),
-    versesContainer: document.getElementById('verses'),
-    loading: document.getElementById('loading'),
-    installPrompt: document.getElementById('installPrompt')
-  };
+document.getElementById('installConfirm')?.addEventListener('click', () => {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(choiceResult => {
+        installPrompt.style.display = 'none';
+    });
+});
 
-  // Service Worker Registration
-  const ServiceWorker = {
-    async register() {
-      if (!('serviceWorker' in navigator)) return;
+document.getElementById('installCancel')?.addEventListener('click', () => {
+    installPrompt.style.display = 'none';
+});
 
-      try {
-        const reg = await navigator.serviceWorker.register(
-          `${CONFIG.appPrefix}sw.js`,
-          { scope: CONFIG.appPrefix }
-        );
-        console.log('Service Worker registered:', reg);
-        return reg;
-      } catch (err) {
-        console.error('SW registration failed:', err);
-        throw err;
-      }
+// Core Application Functions
+async function initializeApp() {
+    registerServiceWorker();
+    await loadTranslationList();
+    setupEventListeners();
+}
+
+async function loadTranslationList() {
+    try {
+        showLoading();
+        const response = await fetch(`${APP_PREFIX}data/translations/translations.json`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        translations = await response.json();
+        if (translations.length === 0) throw new Error('No translations available');
+        
+        populateTranslationSelect();
+        translationSelect.value = 'ckjv';
+        await handleTranslationChange({ target: { value: 'ckjv' } });
+    } catch (error) {
+        console.error('Translation list load error:', error);
+        showError('無法載入譯本列表，請刷新頁面');
+    } finally {
+        hideLoading();
     }
-  };
+}
 
-  // Data Service
-  const DataService = {
-    async fetchTranslations() {
-      return this._fetchJSON(CONFIG.paths.translations);
-    },
+function populateTranslationSelect() {
+    translationSelect.innerHTML = translations
+        .map(t => `<option value="${t.id}">${t.name}</option>`)
+        .join('');
+}
 
-    async fetchManifest(translation) {
-      const path = CONFIG.paths.manifest.replace('{translation}', translation);
-      return this._fetchJSON(path);
-    },
-
-    async fetchBook(translation, book) {
-      const path = CONFIG.paths.book
-        .replace('{translation}', translation)
-        .replace('{book}', book);
-      return this._fetchJSON(path);
-    },
-
-    async _fetchJSON(path) {
-      try {
-        const response = await fetch(`${CONFIG.appPrefix}${path}`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.json();
-      } catch (err) {
-        console.error(`Fetch failed: ${path}`, err);
-        throw err;
-      }
+async function handleTranslationChange(event) {
+    try {
+        showLoading();
+        const translationId = event.target.value;
+        currentTranslation = translationId;
+        
+        const response = await fetch(
+            `${APP_PREFIX}data/translations/${translationId}/manifest.json`
+        );
+        if (!response.ok) throw new Error('Manifest load failed');
+        
+        const manifest = await response.json();
+        populateBookSelect(manifest.books);
+        currentBook = Object.keys(manifest.books)[0];
+		bookSelect.value = currentBook;
+        await handleBookChange({ target: { value: currentBook } });
+    } catch (error) {
+        console.error('Translation change error:', error);
+        showError('無法載入此譯本，請選擇其他譯本');
+    } finally {
+        hideLoading();
     }
-  };
+}
 
-  // UI Controller
-  const UI = {
-    async initialize() {
-      this._bindEvents();
-      await this._loadTranslations();
-      await this._loadInitialTranslation();
-    },
+function populateBookSelect(books) {
+    bookSelect.innerHTML = Object.keys(books)
+        .map(book => `<option value="${book}">${book}</option>`)
+        .join('');
+    bookSelect.disabled = false;
+}
 
-    async _loadTranslations() {
-      try {
-        this.showLoading();
-        state.translations = await DataService.fetchTranslations();
-        this._populateSelect(DOM.translationSelect, state.translations);
-      } catch (err) {
-        this.showError('Failed to load translations. Please refresh the page.');
-        throw err;
-      } finally {
-        this.hideLoading();
-      }
-    },
+async function handleBookChange(event) {
+    try {
+        showLoading();
+        currentBook = event.target.value;
+        
+        // Validate book selection
+        if (!currentBook) throw new Error('未選擇書卷');
 
-    async _loadInitialTranslation() {
-      try {
-        const defaultTrans = state.translations.find(
-          t => t.id === CONFIG.defaultTranslation
+        const response = await fetch(
+            `${APP_PREFIX}data/translations/${currentTranslation}/manifest.json`
         );
+        if (!response.ok) throw new Error('無法載入書卷目錄');
         
-        if (!defaultTrans) {
-          throw new Error('Default translation not found');
-        }
-
-        await this._loadTranslation(CONFIG.defaultTranslation);
-      } catch (err) {
-        this.showError('Failed to load initial translation');
-        throw err;
-      }
-    },
-
-    async _loadTranslation(translationId) {
-      try {
-        this.showLoading();
-        state.current.translation = translationId;
-        state.manifest = await DataService.fetchManifest(translationId);
+        const manifest = await response.json();
+        const bookFile = manifest.books[currentBook];
         
-        if (!state.manifest?.books) {
-          throw new Error('Invalid manifest format');
-        }
-
-        this._populateSelect(DOM.bookSelect, Object.keys(state.manifest.books));
-        await this._loadInitialBook();
-      } catch (err) {
-        this.showError(`Translation load failed: ${err.message}`);
-        throw err;
-      } finally {
-        this.hideLoading();
-      }
-    },
-
-    async _loadInitialBook() {
-      const firstBook = Object.keys(state.manifest.books)[0];
-      if (!firstBook) {
-        throw new Error('No books available');
-      }
-      DOM.bookSelect.value = firstBook;
-      await this._loadBook(firstBook);
-    },
-
-    async _loadBook(bookName) {
-      try {
-        this.showLoading();
-        state.current.book = bookName;
-        const bookFile = state.manifest.books[bookName];
+        // Validate book file reference
+        if (!bookFile) throw new Error('找不到書卷檔案');
         
-        if (!bookFile) {
-          throw new Error('Book file not specified');
-        }
-
-        const data = await DataService.fetchBook(
-          state.current.translation, 
-          bookFile
+        const bookRes = await fetch(
+            `${APP_PREFIX}data/translations/${currentTranslation}/${bookFile}`
         );
+        if (!bookRes.ok) throw new Error('書卷載入失敗');
         
-        if (!data[bookName]) {
-          throw new Error('Invalid book format');
+        bookData = await bookRes.json();
+        console.log('Loaded book data:', bookData);
+        // Validate book data structure
+        if (!bookData || !bookData[currentBook]) {
+            throw new Error('書卷格式錯誤');
         }
+        
+        populateChapterSelect();
+        currentChapter = 1;
+        loadChapterContent();
+    } catch (error) {
+        console.error('Book change error:', error);
+        showError(`無法載入書卷: ${error.message}`);
+    } finally {
+        hideLoading();
+    }
+}
 
-        state.content = data;
-        this._populateChapters(Object.keys(data[bookName]));
-        this._loadChapter();
-      } catch (err) {
-        this.showError(`Book load failed: ${err.message}`);
-        throw err;
-      } finally {
-        this.hideLoading();
-      }
-    },
 
-    _populateChapters(chapters) {
-      this._populateSelect(DOM.chapterSelect, chapters);
-    },
+function populateChapterSelect() {
+    try {
+        // Validate book data
+        if (!bookData || !bookData[currentBook]) {
+            throw new Error('無效的書卷資料');
+        }
+        
+        const chapters = Object.keys(bookData[currentBook]);
+        if (chapters.length === 0) {
+            throw new Error('此書卷沒有章節');
+        }
+        
+        chapterSelect.innerHTML = chapters
+            .map(c => `<option value="${c}">第 ${c} 章</option>`)
+            .join('');
+        chapterSelect.disabled = false;
+    } catch (error) {
+        console.error('Chapter select population failed:', error);
+        showError('無法載入章節列表');
+        chapterSelect.innerHTML = '<option value="error">載入失敗</option>';
+    }
+}
 
-    _loadChapter() {
-      const chapterData = state.content[state.current.book][state.current.chapter];
-      DOM.versesContainer.innerHTML = Object.entries(chapterData)
+function loadChapterContent() {
+    const chapterContent = bookData[currentBook][currentChapter];
+    versesContainer.innerHTML = Object.entries(chapterContent)
         .map(([verse, text]) => `
-          <div class="verse">
-            <span class="verse-number">${verse}</span>
-            ${text}
-          </div>
+            <p class="verse">
+                <span class="verse-number">${verse}.</span>
+                ${text}
+            </p>
         `)
         .join('');
-    },
+    
+    updateNavigationState();
+}
 
-    _populateSelect(selectElement, items) {
-      selectElement.innerHTML = items
-        .map(item => `<option value="${item}">${item}</option>`)
-        .join('');
-      selectElement.disabled = false;
-    },
+function updateNavigationState() {
+    const chapters = Object.keys(bookData[currentBook]);
+    prevChapterBtn.disabled = currentChapter <= 1;
+    nextChapterBtn.disabled = currentChapter >= chapters.length;
+    chapterSelect.value = currentChapter;
+}
 
-    showLoading() {
-      DOM.loading.style.display = 'flex';
-    },
+// UI Helpers
+function showLoading() {
+    document.getElementById('loading').style.display = 'flex';
+}
 
-    hideLoading() {
-      DOM.loading.style.display = 'none';
-    },
+function hideLoading() {
+    document.getElementById('loading').style.display = 'none';
+}
 
-    showError(message) {
-      DOM.versesContainer.innerHTML = `
+function showError(message) {
+    versesContainer.innerHTML = `
         <div class="error">
-          <p>⚠️ ${message}</p>
-          <button onclick="location.reload()">Retry</button>
+            <p>⚠️ ${message}</p>
         </div>
-      `;
-    },
+    `;
+}
 
-    _bindEvents() {
-      DOM.translationSelect.addEventListener('change', async (e) => {
-        await this._loadTranslation(e.target.value);
-      });
+function showLoading() {
+    const loading = document.getElementById('loading');
+    if (loading) loading.style.display = 'flex';
+}
 
-      DOM.bookSelect.addEventListener('change', async (e) => {
-        await this._loadBook(e.target.value);
-      });
+function hideLoading() {
+    const loading = document.getElementById('loading');
+    if (loading) loading.style.display = 'none';
+}
 
-      DOM.chapterSelect.addEventListener('change', (e) => {
-        state.current.chapter = e.target.value;
-        this._loadChapter();
-      });
-    }
-  };
+// Event Listeners
+function setupEventListeners() {
+    translationSelect.addEventListener('change', handleTranslationChange);
+    bookSelect.addEventListener('change', handleBookChange);
+    chapterSelect.addEventListener('change', (e) => {
+        currentChapter = parseInt(e.target.value);
+        loadChapterContent();
+    });
+    prevChapterBtn.addEventListener('click', () => {
+        if (currentChapter > 1) {
+            currentChapter--;
+            loadChapterContent();
+        }
+    });
+    nextChapterBtn.addEventListener('click', () => {
+        const chapters = Object.keys(bookData[currentBook]);
+        if (currentChapter < chapters.length) {
+            currentChapter++;
+            loadChapterContent();
+        }
+    });
+}
 
-  // Public API
-  return {
-    init: async () => {
-      try {
-        await ServiceWorker.register();
-        await UI.initialize();
-      } catch (err) {
-        UI.showError('Initialization failed. Please check your connection.');
-        console.error('Critical initialization error:', err);
-      }
-    }
-  };
-})();
-
-// Initialize the application
-document.addEventListener('DOMContentLoaded', BibleReader.init);
+// Initialize Application
+document.addEventListener('DOMContentLoaded', initializeApp);
