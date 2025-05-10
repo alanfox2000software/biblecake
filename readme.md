@@ -39,3 +39,8 @@ https://alanfox2000software.github.io/biblecake/
 	- 以利亞啟示錄 | Apocalypse of Elijah
 	- 西番雅啟示錄 | Apocalypse of Zephania
 	- 以西結偽經 | Apocryphon of Ezekiel
+
+## 許可證
+- 項目代碼採用 MIT License 許可證。
+- 中文英王欽定本聖經（CKJV）內容（位於 /data/translations/ckjv/）採用創用 CC 姓名標示 - 相同方式分享 3.0 Unported 許可證（CC BY-SA 3.0）。
+- CKJV 內容由 https://ckjv.asia/ 提供，版權歸原始版權持有者所有。
