@@ -1,6 +1,8 @@
 # BibleCake
+<a href="https://github.com/alanfox2000software/biblecake/releases"><img src="https://raw.githubusercontent.com/alanfox2000software/biblecake/refs/heads/main/.github/images/logo.png" /></a>
+</p>
 
-BibleCake 是一個旨在支緩PWA網上中文聖經瀏覽器。
+BibleCake 是一個無需安裝並支緩 PWA 的網上中文聖經瀏覽器。
 
 ## 網址
 https://alanfox2000software.github.io/biblecake/
